@@ -209,6 +209,7 @@ public final class HarnessTerminalSurfaceView: NSView {
     private let inputEncoder = InputEncoder()
     private let metalLayer = CAMetalLayer()
     private var renderer: TerminalMetalRenderer?
+    private var resolvedFont: ResolvedTerminalFont
 
     private var frameBuilder: FrameBuilder
     private var frameBuildConfiguration: SurfaceFrameBuildConfiguration
@@ -224,6 +225,8 @@ public final class HarnessTerminalSurfaceView: NSView {
     private var lastPresentedResult: SurfaceFrameBuildResult?
     private var fontFamily: String
     private var fontSize: CGFloat
+    private var fontThicken = false
+    private var fontThickenStrength = 255
     /// The canvas (default) background — used as the Metal clear color and (at
     /// `canvasOpacity`) for default-bg cells. Resolved by the host through the same
     /// `ThemeManager.resolvedCanvas` the chrome uses, so terminal and chrome never seam.
@@ -341,8 +344,8 @@ public final class HarnessTerminalSurfaceView: NSView {
 
     public init(
         themeName: String = ThemeManager.defaultThemeName,
-        fontFamily: String = "Menlo",
-        fontSize: CGFloat = 14,
+        fontFamily: String = TerminalFontResolver.defaultFontFamily,
+        fontSize: CGFloat = 16,
         vivid: Bool = false,
         colorRendering: TerminalColorRenderingMode? = nil,
         colorGamut: TerminalColorGamut = .auto,
@@ -376,8 +379,10 @@ public final class HarnessTerminalSurfaceView: NSView {
         )
         self.canvasBackground = theme.background
         self.canvasOpacity = 1
-        self.fontFamily = fontFamily
+        let initialFont = TerminalFontResolver.resolve(fontFamily: fontFamily, size: fontSize)
+        self.fontFamily = initialFont.effectiveFamily
         self.fontSize = fontSize
+        self.resolvedFont = initialFont
         self.colorRendering = resolvedColorRendering
         self.colorGamut = resolvedGamut
         self.offMainParserFramePipelineEnabled = offMainParserFramePipeline
@@ -487,6 +492,10 @@ public final class HarnessTerminalSurfaceView: NSView {
         emulatorSync { $0.readGrid() }
     }
 
+    func testingResolveCellColors(_ cell: TerminalGridCell) -> ResolvedCellColors {
+        frameBuildConfiguration.resolver.resolve(cell)
+    }
+
     func testingWaitForEmulatorIdle() {
         emulatorState.sync { _ in }
     }
@@ -497,6 +506,7 @@ public final class HarnessTerminalSurfaceView: NSView {
 
     var testingRenderSynchronized: Bool { scheduler.synchronized }
     var testingRenderPending: Bool { scheduler.needsRender }
+    public var testingResolvedFont: ResolvedTerminalFont { resolvedFont }
 
     /// The full appearance the host computes from settings + theme:
     /// - `canvasBackground/Foreground/cursor` come from `ThemeManager.resolvedCanvas`, so
@@ -515,6 +525,7 @@ public final class HarnessTerminalSurfaceView: NSView {
         canvasForegroundHex: String,
         cursorHex: String,
         outputPaletteHex: [String?],
+        oscPaletteHex: [String?]? = nil,
         canvasOpacity: Float,
         cursorStyle: String,
         cursorBlink: Bool,
@@ -526,6 +537,8 @@ public final class HarnessTerminalSurfaceView: NSView {
         scrollbackLines: Int,
         linearBlending: Bool,
         textRendering: TerminalTextRenderingMode? = nil,
+        fontThicken: Bool = false,
+        fontThickenStrength: Int = 255,
         ligatures: Bool,
         promptGutter: Bool = false,
         offMainParserFramePipeline: Bool = true
@@ -561,8 +574,18 @@ public final class HarnessTerminalSurfaceView: NSView {
                 ?? ThemeManager.defaultBaselinePaletteHex[i]
             return RGBColor(hex: hex) ?? RGBColor(red: 0, green: 0, blue: 0)
         }
-        self.fontFamily = fontFamily
+        let queryPalette: [RGBColor] = (0 ..< 16).map { i in
+            let hex = (oscPaletteHex.flatMap { i < $0.count ? $0[i] : nil })
+                ?? (i < outputPaletteHex.count ? outputPaletteHex[i] : nil)
+                ?? ThemeManager.defaultBaselinePaletteHex[i]
+            return RGBColor(hex: hex) ?? RGBColor(red: 0, green: 0, blue: 0)
+        }
+        let nextFont = TerminalFontResolver.resolve(fontFamily: fontFamily, size: fontSize)
+        self.fontFamily = nextFont.effectiveFamily
         self.fontSize = fontSize
+        self.resolvedFont = nextFont
+        self.fontThicken = fontThicken
+        self.fontThickenStrength = max(0, min(255, fontThickenStrength))
         self.colorRendering = resolvedColorRendering
         self.colorGamut = resolvedGamut
         self.canvasBackground = bg
@@ -577,7 +600,7 @@ public final class HarnessTerminalSurfaceView: NSView {
         self.selectionBackground = selBg
         self.selectionForeground = selFg
         self.copyOnSelect = copyOnSelect
-        colorProviderState.update(foreground: fg, background: bg, cursor: cursor, palette: palette)
+        colorProviderState.update(foreground: fg, background: bg, cursor: cursor, palette: queryPalette)
         let resolver = CellColorResolver(
             palette: ANSIPalette(base16: palette),
             defaultForeground: fg,
@@ -780,7 +803,13 @@ public final class HarnessTerminalSurfaceView: NSView {
         guard let device = metalLayer.device ?? MTLCreateSystemDefaultDevice() else { return }
         metalLayer.device = device
         let scale = window?.backingScaleFactor ?? 2.0
-        renderer = TerminalMetalRenderer(device: device, fontFamily: fontFamily, fontSize: fontSize, scale: scale)
+        renderer = TerminalMetalRenderer(
+            device: device,
+            resolvedFont: resolvedFont,
+            scale: scale,
+            fontThicken: fontThicken,
+            fontThickenStrength: fontThickenStrength
+        )
         // Tell the engine the real cell pixel size so inline-image cell footprints + cursor
         // advancement match what the renderer draws.
         if let renderer {
