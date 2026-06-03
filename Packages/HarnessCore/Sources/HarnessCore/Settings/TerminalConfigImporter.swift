@@ -4,7 +4,7 @@ import Foundation
 public struct ImportedTerminalConfig: Sendable, Equatable {
     // v4: selection/bold/cursor-text/minimum-contrast/palette are now honored
     // (previously imported then discarded), so bump to force a one-time re-import.
-    private static let signatureVersion = "v4"
+    private static let signatureVersion = "v6"
 
     public var fontFamily: String?
     public var fontSize: Float?
@@ -14,6 +14,8 @@ public struct ImportedTerminalConfig: Sendable, Equatable {
     public var windowPaddingX: Float?
     public var windowPaddingY: Float?
     public var themeName: String?
+    public var systemLightThemeName: String?
+    public var systemDarkThemeName: String?
     public var backgroundHex: String?
     public var foregroundHex: String?
     public var cursorColorHex: String?
@@ -28,6 +30,8 @@ public struct ImportedTerminalConfig: Sendable, Equatable {
     public var cursorStyle: String?
     public var cursorBlink: Bool?
     public var copyOnSelect: Bool?
+    public var fontThicken: Bool?
+    public var fontThickenStrength: Int?
 
     public var signature: String {
         var parts: [String] = []
@@ -40,6 +44,8 @@ public struct ImportedTerminalConfig: Sendable, Equatable {
         parts.append(windowPaddingX.map { String($0) } ?? "")
         parts.append(windowPaddingY.map { String($0) } ?? "")
         parts.append(themeName ?? "")
+        parts.append(systemLightThemeName ?? "")
+        parts.append(systemDarkThemeName ?? "")
         parts.append(backgroundHex ?? "")
         parts.append(foregroundHex ?? "")
         parts.append(cursorColorHex ?? "")
@@ -64,6 +70,8 @@ public struct ImportedTerminalConfig: Sendable, Equatable {
         windowPaddingX: Float? = nil,
         windowPaddingY: Float? = nil,
         themeName: String? = nil,
+        systemLightThemeName: String? = nil,
+        systemDarkThemeName: String? = nil,
         backgroundHex: String? = nil,
         foregroundHex: String? = nil,
         cursorColorHex: String? = nil,
@@ -75,7 +83,9 @@ public struct ImportedTerminalConfig: Sendable, Equatable {
         paletteHex: [String?] = Array(repeating: nil, count: 16),
         cursorStyle: String? = nil,
         cursorBlink: Bool? = nil,
-        copyOnSelect: Bool? = nil
+        copyOnSelect: Bool? = nil,
+        fontThicken: Bool? = nil,
+        fontThickenStrength: Int? = nil
     ) {
         self.fontFamily = fontFamily
         self.fontSize = fontSize
@@ -85,6 +95,8 @@ public struct ImportedTerminalConfig: Sendable, Equatable {
         self.windowPaddingX = windowPaddingX
         self.windowPaddingY = windowPaddingY
         self.themeName = themeName
+        self.systemLightThemeName = systemLightThemeName
+        self.systemDarkThemeName = systemDarkThemeName
         self.backgroundHex = backgroundHex
         self.foregroundHex = foregroundHex
         self.cursorColorHex = cursorColorHex
@@ -97,6 +109,8 @@ public struct ImportedTerminalConfig: Sendable, Equatable {
         self.cursorStyle = cursorStyle
         self.cursorBlink = cursorBlink
         self.copyOnSelect = copyOnSelect
+        self.fontThicken = fontThicken
+        self.fontThickenStrength = fontThickenStrength
     }
 
     public var hasTerminalColorOverrides: Bool {
@@ -109,12 +123,16 @@ public struct ImportedTerminalConfig: Sendable, Equatable {
             || cursorTextHex != nil
             || paletteHex.contains { $0 != nil }
     }
+
+    public var hasExplicitPaletteOverrides: Bool {
+        paletteHex.contains { $0 != nil }
+    }
 }
 
 /// Reads an existing terminal config from disk and pulls values that map cleanly to Harness —
 /// font, opacity, blur, padding, theme/colors.
 public enum TerminalConfigImporter {
-    public static let candidatePaths: [String] = {
+    public static var candidatePaths: [String] {
         let home = NSString(string: "~").expandingTildeInPath
         return [
             "\(home)/.config/ghostty/config.ghostty",
@@ -122,7 +140,7 @@ public enum TerminalConfigImporter {
             "\(home)/Library/Application Support/com.mitchellh.ghostty/config.ghostty",
             "\(home)/Library/Application Support/com.mitchellh.ghostty/config",
         ]
-    }()
+    }
 
     /// Existing config files in merge order. Later files override earlier
     /// files for duplicated keys, matching how Harness has historically treated
@@ -217,7 +235,12 @@ public enum TerminalConfigImporter {
             defaults.windowPaddingY = max(0, value)
         }
         if let value = values["theme"], !value.isEmpty {
-            defaults.themeName = value
+            if let split = parseSplitTheme(value) {
+                defaults.systemLightThemeName = split.light
+                defaults.systemDarkThemeName = split.dark
+            } else {
+                defaults.themeName = value
+            }
         }
         if let value = values["background"], !value.isEmpty {
             defaults.backgroundHex = normalizeHex(value)
@@ -252,6 +275,14 @@ public enum TerminalConfigImporter {
         if let value = values["copy-on-select"].flatMap(parseBool) {
             defaults.copyOnSelect = value
         }
+        if let value = values["font-thicken"].flatMap(parseBool) {
+            defaults.fontThicken = value
+        }
+        if let raw = values["font-thicken-strength"], let value = Int(raw) {
+            defaults.fontThickenStrength = max(0, min(255, value))
+        } else if defaults.fontThicken == true {
+            defaults.fontThickenStrength = 255
+        }
         return defaults
     }
 
@@ -267,6 +298,25 @@ public enum TerminalConfigImporter {
               (0 ..< 16).contains(index)
         else { return nil }
         return (index, normalizeHex(parts[1]))
+    }
+
+    private static func parseSplitTheme(_ raw: String) -> (light: String, dark: String)? {
+        var light: String?
+        var dark: String?
+        for part in raw.split(separator: ",") {
+            let pieces = part.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            guard pieces.count == 2 else { continue }
+            switch pieces[0].lowercased() {
+            case "light" where !pieces[1].isEmpty:
+                light = pieces[1]
+            case "dark" where !pieces[1].isEmpty:
+                dark = pieces[1]
+            default:
+                continue
+            }
+        }
+        guard let light, let dark else { return nil }
+        return (light, dark)
     }
 
     private static func parseBool(_ raw: String) -> Bool? {
@@ -289,6 +339,8 @@ private extension ImportedTerminalConfig {
             windowPaddingX: newer.windowPaddingX ?? windowPaddingX,
             windowPaddingY: newer.windowPaddingY ?? windowPaddingY,
             themeName: newer.themeName ?? themeName,
+            systemLightThemeName: newer.systemLightThemeName ?? systemLightThemeName,
+            systemDarkThemeName: newer.systemDarkThemeName ?? systemDarkThemeName,
             backgroundHex: newer.backgroundHex ?? backgroundHex,
             foregroundHex: newer.foregroundHex ?? foregroundHex,
             cursorColorHex: newer.cursorColorHex ?? cursorColorHex,
@@ -300,7 +352,9 @@ private extension ImportedTerminalConfig {
             paletteHex: mergePalette(newer.paletteHex, over: paletteHex),
             cursorStyle: newer.cursorStyle ?? cursorStyle,
             cursorBlink: newer.cursorBlink ?? cursorBlink,
-            copyOnSelect: newer.copyOnSelect ?? copyOnSelect
+            copyOnSelect: newer.copyOnSelect ?? copyOnSelect,
+            fontThicken: newer.fontThicken ?? fontThicken,
+            fontThickenStrength: newer.fontThickenStrength ?? fontThickenStrength
         )
     }
 

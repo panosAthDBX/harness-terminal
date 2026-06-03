@@ -55,7 +55,7 @@ final class TerminalConfigImporterTests: XCTestCase {
         XCTAssertEqual(imported.cursorStyle, "block")
         XCTAssertEqual(imported.cursorBlink, false)
         XCTAssertEqual(imported.copyOnSelect, true)
-        XCTAssertTrue(imported.signature.hasPrefix("v4|"))
+        XCTAssertTrue(imported.signature.hasPrefix("v6|"))
         XCTAssertEqual(imported.fontFamily, "JetBrainsMono Nerd Font")
         XCTAssertEqual(imported.fontSize, 17)
         XCTAssertEqual(imported.windowPaddingX, 14)
@@ -63,6 +63,45 @@ final class TerminalConfigImporterTests: XCTestCase {
         XCTAssertEqual(imported.backgroundOpacity, 0.85)
         XCTAssertEqual(imported.backgroundBlur, 12)
         XCTAssertEqual(imported.defaultShell, "/opt/homebrew/bin/fish")
+    }
+
+    func testParsesGhosttySplitThemeAsSystemThemeNames() {
+        let imported = TerminalConfigImporter.parse("""
+        theme = dark:TokyoNight Storm,light:Tango Adapted
+        """)
+
+        XCTAssertNil(imported.themeName)
+        XCTAssertEqual(imported.systemLightThemeName, "Tango Adapted")
+        XCTAssertEqual(imported.systemDarkThemeName, "TokyoNight Storm")
+    }
+
+    func testParsesGhosttySplitThemeInAnyOrderAndWithQuotes() {
+        let imported = TerminalConfigImporter.parse("""
+        theme = "light:Tango Adapted,dark:TokyoNight Storm"
+        """)
+
+        XCTAssertNil(imported.themeName)
+        XCTAssertEqual(imported.systemLightThemeName, "Tango Adapted")
+        XCTAssertEqual(imported.systemDarkThemeName, "TokyoNight Storm")
+    }
+
+    func testParsesGhosttyFontThickenWithDefaultStrength() {
+        let imported = TerminalConfigImporter.parse("""
+        font-thicken = true
+        """)
+
+        XCTAssertEqual(imported.fontThicken, true)
+        XCTAssertEqual(imported.fontThickenStrength, 255)
+    }
+
+    func testKeepsSingleGhosttyThemeAsThemeName() {
+        let imported = TerminalConfigImporter.parse("""
+        theme = Dracula
+        """)
+
+        XCTAssertEqual(imported.themeName, "Dracula")
+        XCTAssertNil(imported.systemLightThemeName)
+        XCTAssertNil(imported.systemDarkThemeName)
     }
 
     func testMergesMultipleConfigLocations() throws {
