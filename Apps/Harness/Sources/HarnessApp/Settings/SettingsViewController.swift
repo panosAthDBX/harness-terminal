@@ -5,7 +5,11 @@ import UserNotifications
 
 @MainActor
 final class SettingsViewController: NSViewController, NSFontChanging {
+    private let appearanceModePopup = HarnessSelect(frame: .zero)
     private let themePopup = HarnessSelect(frame: .zero)
+    private let systemLightThemePopup = HarnessSelect(frame: .zero)
+    private let systemDarkThemePopup = HarnessSelect(frame: .zero)
+    private var systemThemeRows: [NSView] = []
     private let fontSizeField = HarnessTextField()
     private let fontFamilyField = NSTextField() // backing store for the chosen font (not shown)
     private let fontReadout = NSTextField(labelWithString: "")
@@ -152,13 +156,26 @@ final class SettingsViewController: NSViewController, NSFontChanging {
         let coordinator = SessionCoordinator.shared
         let settings = coordinator.settings
 
-        themePopup.removeAllItems()
-        for name in ThemeManager.allThemeNames() {
-            themePopup.addItem(withTitle: name)
-        }
-        themePopup.selectItem(withTitle: coordinator.snapshot.themeName)
+        appearanceModePopup.removeAllItems()
+        appearanceModePopup.addItems(withTitles: HarnessAppearanceMode.allCases.map(Self.appearanceModeTitle))
+        appearanceModePopup.selectItem(withTitle: Self.appearanceModeTitle(settings.appearanceMode))
+        systemLightThemePopup.selectItem(withTitle: settings.systemLightThemeName)
+        systemDarkThemePopup.selectItem(withTitle: settings.systemDarkThemeName)
+        updateSystemThemePickerAvailability()
+        appearanceModePopup.target = self
+        appearanceModePopup.action = #selector(appearanceTextDidCommit)
+
+        populateThemePopup(themePopup, selectedThemeName: coordinator.snapshot.themeName)
         themePopup.target = self
         themePopup.action = #selector(themeDidChange)
+
+        populateThemePopup(systemLightThemePopup, selectedThemeName: settings.systemLightThemeName)
+        systemLightThemePopup.target = self
+        systemLightThemePopup.action = #selector(systemLightThemeDidChange)
+
+        populateThemePopup(systemDarkThemePopup, selectedThemeName: settings.systemDarkThemeName)
+        systemDarkThemePopup.target = self
+        systemDarkThemePopup.action = #selector(systemDarkThemeDidChange)
 
         fontSizeField.stringValue = String(format: "%.0f", settings.fontSize)
         fontSizeField.target = self
@@ -493,7 +510,7 @@ final class SettingsViewController: NSViewController, NSFontChanging {
     private let settingsSearch = HarnessSearchField()
     private let sidebarTitleLabel = NSTextField(labelWithString: "Settings")
     private static let sectionKeywords: [Int: [String]] = [
-        0: ["appearance", "theme", "opacity", "blur", "padding", "window", "transparent", "titlebar", "sidebar", "restore", "remember", "size"],
+        0: ["appearance", "theme", "system", "macos", "opacity", "blur", "padding", "window", "transparent", "titlebar", "sidebar", "restore", "remember", "size"],
         1: ["colors", "color", "background", "foreground", "cursor", "selection", "palette", "ansi", "vivid", "ligatures", "divider", "status", "soft", "native", "crisp", "rendering", "gamma"],
         2: ["terminal", "font", "shell", "directory", "scrollback", "blink", "copy", "session", "harness", "controls", "experience"],
         3: ["keys", "prefix", "binding", "keybinding", "shortcut"],
@@ -592,7 +609,9 @@ final class SettingsViewController: NSViewController, NSFontChanging {
             link.setContentCompressionResistancePriority(.required, for: .horizontal)
             link.setContentHuggingPriority(.required, for: .horizontal)
         }
-        themePopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 240).isActive = true
+        for popup in [themePopup, systemLightThemePopup, systemDarkThemePopup] {
+            popup.widthAnchor.constraint(greaterThanOrEqualToConstant: 240).isActive = true
+        }
 
         let opacityRow = NSStackView(views: [opacitySlider, opacityLabel])
         opacityRow.orientation = .horizontal
@@ -625,8 +644,16 @@ final class SettingsViewController: NSViewController, NSFontChanging {
         themeActions.spacing = 16
         themeActions.alignment = .centerY
 
+        let lightThemeRow = settingsRow("Light Theme", systemLightThemePopup)
+        let darkThemeRow = settingsRow("Dark Theme", systemDarkThemePopup)
+        systemThemeRows = [lightThemeRow, darkThemeRow]
+        updateSystemThemePickerAvailability()
+
         let themeGroup = settingsGroup("Theme", [
+            settingsRow("Appearance", appearanceModePopup),
             settingsRow("Theme", themePopup),
+            lightThemeRow,
+            darkThemeRow,
             settingsRow("", themeActions),
         ])
         let windowGroup = settingsGroup("Window", [
@@ -1637,6 +1664,28 @@ final class SettingsViewController: NSViewController, NSFontChanging {
         refreshColorPlaceholders()
     }
 
+    @objc private func systemLightThemeDidChange() {
+        guard let theme = systemLightThemePopup.titleOfSelectedItem else { return }
+        let coordinator = SessionCoordinator.shared
+        coordinator.settings.systemLightThemeName = theme
+        coordinator.settings.clearThemeColorOverrides()
+        try? coordinator.settings.save()
+        coordinator.applySettingsToHosts()
+        syncAppearanceControlsFromSettings()
+        refreshColorPlaceholders()
+    }
+
+    @objc private func systemDarkThemeDidChange() {
+        guard let theme = systemDarkThemePopup.titleOfSelectedItem else { return }
+        let coordinator = SessionCoordinator.shared
+        coordinator.settings.systemDarkThemeName = theme
+        coordinator.settings.clearThemeColorOverrides()
+        try? coordinator.settings.save()
+        coordinator.applySettingsToHosts()
+        syncAppearanceControlsFromSettings()
+        refreshColorPlaceholders()
+    }
+
     /// Re-seed all colors from the currently selected theme, discarding manual
     /// edits ("Reset to theme").
     @objc private func useThemeColors() {
@@ -1670,6 +1719,51 @@ final class SettingsViewController: NSViewController, NSFontChanging {
         let status = DefaultTerminalManager.status()
         defaultTerminalStatusField.stringValue = status.summary
         defaultTerminalButton.title = status.isDefault ? "Default terminal set" : "Set Harness as default terminal"
+    }
+
+    private var selectedAppearanceMode: HarnessAppearanceMode {
+        let title = appearanceModePopup.titleOfSelectedItem ?? ""
+        return HarnessAppearanceMode.allCases.first { Self.appearanceModeTitle($0) == title } ?? .theme
+    }
+
+    private func populateThemePopup(_ popup: HarnessSelect, selectedThemeName: String) {
+        popup.removeAllItems()
+        for name in ThemeManager.allThemeNames() {
+            popup.addItem(withTitle: name)
+        }
+        popup.selectItem(withTitle: selectedThemeName)
+    }
+
+    private func updateSystemThemePickerAvailability() {
+        let followsSystem = selectedAppearanceMode == .macOSSystem
+        for row in systemThemeRows {
+            row.isHidden = !followsSystem
+        }
+        systemLightThemePopup.isEnabled = followsSystem
+        systemDarkThemePopup.isEnabled = followsSystem
+    }
+
+    private func syncSystemThemePickersFromSettings() {
+        let settings = SessionCoordinator.shared.settings
+        systemLightThemePopup.selectItem(withTitle: settings.systemLightThemeName)
+        systemDarkThemePopup.selectItem(withTitle: settings.systemDarkThemeName)
+    }
+
+    private func seedUnsetSystemThemeNames(settings: inout HarnessSettings, selectedThemeName: String) {
+        if settings.systemLightThemeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            settings.systemLightThemeName = ThemeManager.defaultSystemLightThemeName
+        }
+        if settings.systemDarkThemeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           ThemeManager.allThemeNames().contains(selectedThemeName) {
+            settings.systemDarkThemeName = selectedThemeName
+        }
+    }
+
+    private static func appearanceModeTitle(_ mode: HarnessAppearanceMode) -> String {
+        switch mode {
+        case .theme: return "Theme"
+        case .macOSSystem: return "Follow macOS Appearance"
+        }
     }
 
     /// The selected experience mode, derived from the segment position.
@@ -1768,6 +1862,7 @@ final class SettingsViewController: NSViewController, NSFontChanging {
 
     @objc private func appearanceTextDidCommit() {
         flushAndApply()
+        updateSystemThemePickerAvailability()
     }
 
     @objc private func appearanceTextDidChange(_ note: Notification) {
@@ -1863,6 +1958,10 @@ final class SettingsViewController: NSViewController, NSFontChanging {
         paddingYField.stringValue = String(Int(settings.windowPaddingY.rounded()))
         fontFamilyField.stringValue = settings.fontFamily
         fontSizeField.stringValue = String(Int(settings.fontSize.rounded()))
+        appearanceModePopup.selectItem(withTitle: Self.appearanceModeTitle(settings.appearanceMode))
+        systemLightThemePopup.selectItem(withTitle: settings.systemLightThemeName)
+        systemDarkThemePopup.selectItem(withTitle: settings.systemDarkThemeName)
+        updateSystemThemePickerAvailability()
         experienceSegment.selectItem(withTitle: settings.experienceMode.displayName)
         experienceSummaryLabel.stringValue = settings.experienceMode.summary
         cursorStyleSegment.selectItem(withTitle: cursorStyleTitle(settings.cursorStyle))
@@ -1944,6 +2043,20 @@ final class SettingsViewController: NSViewController, NSFontChanging {
         coordinator.settings.restoreWindowSize = restoreWindowSizeToggle.state == .on
         coordinator.settings.windowPaddingX = Float(paddingXField.stringValue) ?? 12
         coordinator.settings.windowPaddingY = Float(paddingYField.stringValue) ?? 12
+        let previousAppearanceMode = coordinator.settings.appearanceMode
+        let nextAppearanceMode = selectedAppearanceMode
+        coordinator.settings.appearanceMode = nextAppearanceMode
+        if previousAppearanceMode != nextAppearanceMode {
+            coordinator.settings.clearThemeColorOverrides()
+            for binding in colorBindings {
+                binding.field.stringValue = ""
+                refreshColorBinding(binding)
+            }
+        }
+        if previousAppearanceMode != .macOSSystem && nextAppearanceMode == .macOSSystem {
+            seedUnsetSystemThemeNames(settings: &coordinator.settings, selectedThemeName: coordinator.snapshot.themeName)
+            syncSystemThemePickersFromSettings()
+        }
         coordinator.settings.fontSize = Float(fontSizeField.stringValue) ?? 14
         coordinator.settings.fontFamily = fontFamilyField.stringValue
         coordinator.settings.defaultShell = shellField.stringValue
