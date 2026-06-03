@@ -4,7 +4,7 @@
 
 The native macOS terminal that keeps your sessions running and tells you the moment a coding agent needs you.
 
-Every pane renders on Harness's own GPU engine. Your splits and sessions live in a background daemon, so they survive quitting the app — and their scrollback survives a daemon restart. You can drive or attach to them from the command line, including a headless or remote daemon over SSH. And Harness watches the agents you run inside it (Claude Code, Codex, Cursor, and more), so an approval prompt never sits unseen behind another tab.
+Every pane renders on Harness's own GPU engine. Your splits and sessions live in a background daemon, so they survive quitting the app — and their scrollback survives a daemon restart. You can drive or attach to them from the command line, including a headless or remote daemon over SSH. And Harness watches the agents you run inside it (Claude Code, Codex, OpenCode, Cursor, and more), so an approval prompt never sits unseen behind another tab.
 
 One self-contained app. The terminal engine, daemon, and CLI are all first-party Swift; the only external dependency is Sparkle (the macOS auto-update framework, GUI-only).
 
@@ -23,22 +23,22 @@ Prefer to build it yourself? Jump to [Build from source](#build-from-source).
 - **It's a real terminal first.** GPU rendering, accurate sRGB color by default, opt-in converted Display-P3 vivid color, ligatures, inline images (Sixel / Kitty / iTerm2), and 490 built-in themes with a muted Harness default. Block and box-drawing glyphs are drawn procedurally, so borders tile without seams at any font.
 - **Your work outlives the window.** Sessions, tabs, and splits are owned by a daemon. Quit and reopen and everything is exactly where you left it, scrollback included — history is persisted to disk and restored even if the daemon restarts. Attach the same session from a second window or another machine.
 - **It's scriptable, locally or remotely.** `harness-cli` drives the whole thing — open tabs, send keys, capture a pane, resize, swap, zoom — so your tooling can build the layout it needs. Point any command at a headless or remote daemon with `--host <name>`; the daemon and CLI run on Linux too, so a remote box can host your sessions.
-- **It watches your agents.** Harness detects Claude Code, Codex, Cursor, and others by their process tree, shows which session is running what, and pings you when an agent stops or asks for approval. `Cmd+Shift+U` jumps you to the one that's waiting and skips the ones still thinking.
+- **It watches your agents.** Harness detects Claude Code, Codex, OpenCode, Cursor, and others by their process tree, shows which session is running what, and pings you when an agent stops or asks for approval. `Cmd+Shift+U` jumps you to the one that's waiting and skips the ones still thinking.
 
 ## How it feels
 
 Harness ranges from a plain, get-out-of-your-way terminal to a full session manager. Pick the level in **Settings → Terminal → Experience**:
 
-- **Plain Terminal** — fast and quiet. No command prefix, no status bar. Sessions close when you quit, like any terminal.
-- **Persistent Terminal** — the same clean look, but sessions survive quitting and you can attach to them from the CLI.
-- **Full Terminal** — everything: command prefix, status line, copy mode, paste buffers, panes, and the full `harness-cli` command set.
-- **Agent Workspace** — persistent project workspaces with agent detection and notifications turned up front.
+- **Plain Terminal**: fast and quiet. No command prefix, no status bar. Sessions close when you quit, like any terminal.
+- **Persistent Terminal**: the same clean look, but sessions survive quitting and you can attach to them from the CLI.
+- **Full Terminal**: everything, command prefix, status line, copy mode, paste buffers, panes, and the full `harness-cli` command set.
+- **Agent Workspace**: persistent project workspaces with agent detection and notifications turned up front.
 
-New installs start in Plain. Moving over from another setup? See [docs/MIGRATION.md](docs/MIGRATION.md) — Harness can import an existing terminal config (colors, font, padding) on first run.
+New installs start in Plain. Moving over from another setup? See [docs/MIGRATION.md](docs/MIGRATION.md). Harness can import an existing terminal config (colors, font, padding) on first run.
 
 ## Features
 
-- GPU-accelerated rendering by Harness's own terminal engine — accurate sRGB output by default, opt-in converted Display-P3 vivid color, a themed translucent canvas, and program output left untouched unless you opt into theme recoloring
+- GPU-accelerated rendering by Harness's own terminal engine, accurate sRGB output by default, opt-in converted Display-P3 vivid color, a themed translucent canvas, and program output left untouched unless you opt into theme recoloring
 - Sidebar sessions, per-session tabs, and horizontal / vertical splits
 - Session layout persists across quits (daemon-owned, attach from the CLI or over SSH)
 - Persistent scrollback: a pane's history is written to disk per surface and restored when the daemon restarts
@@ -47,16 +47,27 @@ New installs start in Plain. Moving over from another setup? See [docs/MIGRATION
 - Color/theme diagnostics from the CLI: `harness-cli color-check` and `harness-cli theme-preview --theme <name>` print deterministic SGR pages for eyeballing fidelity in Harness itself
 - Command set: `send-keys`, `capture-pane`, `kill-pane`, `resize-pane`, `zoom-pane`, `swap-pane`, `rename-tab`, `attach`, and more
 - Command prefix keymap (default `Ctrl-A`) with a live cheatsheet (prefix `?`)
-- Agent detection for Claude Code, Codex, Cursor, Pi, Hermes, OpenClaw, OpenCode, Aider, Gemini, and Goose — each with a brand color and a sidebar chip
+- Agent detection for Claude Code, Codex, Cursor, Pi, Hermes, OpenClaw, OpenCode, Aider, Gemini, and Goose, each with a brand color and a sidebar chip
 - Agent alerts as desktop banners, a sidebar bell, and pane rings; `Cmd+Shift+U` jumps to whoever is waiting
-- One-line hook install: `harness-cli install-hooks <agent>`
+- One-line hook install for hook-capable agents: `harness-cli install-hooks <agent>`
 - Command palette (`Cmd+K`) and a native macOS Settings window (`Cmd+,`)
+- Configured shell support for new GUI panes, with fish supported when selected and executable
 - 490 built-in color themes with a muted Harness default, plus `.harnesstheme` export / import for sharing
-- Shell integration (OSC 133): prompt marks for jump-to-prompt and a command success / failure gutter — bash / zsh / fish snippets in [docs/shell-integration/](docs/shell-integration/README.md)
+- Shell integration (OSC 133): prompt marks for jump-to-prompt and a command success / failure gutter, bash / zsh / fish snippets in [docs/shell-integration/](docs/shell-integration/README.md)
 - Inline images that stay put across reflow and scroll into history
 - Drag file-backed folders or images into a pane to insert shell-quoted paths
 - Set Harness as the default terminal for SSH/Telnet/man-page links and `.command` / `.tool` files from Settings > Terminal
 - Automatic, signed background updates (Sparkle + EdDSA)
+
+## Appearance, shell, and font defaults
+
+Harness appearance is owned by Harness. The **Appearance** setting can follow macOS light or dark mode with Harness's `macos-system` appearance mode, or it can stay on the selected Harness theme. This is separate from OpenCode's own TUI `system` theme in `tui.json`, which only controls OpenCode's interface inside the terminal.
+
+Program ANSI output is preserved by default. Harness themes color the canvas, chrome, cursor, selection, and OSC color answers, but they don't rewrite a program's SGR palette unless **Settings > Appearance > Apply theme colors to terminal output** is enabled.
+
+New GUI panes use this shell order: the configured Harness shell from Settings, then the daemon's `$SHELL`, then `/bin/zsh`, `/bin/bash`, and `/bin/sh`. If you choose fish and the path is executable, Harness launches it with fish login behavior. If the configured shell is missing or not executable, Harness falls back to the next executable shell instead of opening a dead pane.
+
+Harness prefers the configured font, defaulting to `JetBrainsMono Nerd Font` at 16 pt. If that font isn't installed, macOS may substitute an available monospace face such as Menlo, and individual missing glyphs can still fall back per character. Change the face and size in **Settings > Appearance > Font**.
 
 ## harness-cli
 
@@ -88,7 +99,7 @@ export PATH="$HOME/Library/Application Support/Harness/bin:$PATH"
 The first-run setup in `Harness.app` performs the same local installation for new
 users: it copies `harness-cli` and `HarnessDaemon`, registers the LaunchAgent,
 adds PATH blocks for zsh/bash/fish with backups, installs fish completions, asks
-for notification permission, and offers detected agent hooks.
+for notification permission, and offers hooks for detected hook-capable agents.
 
 ## Remote & headless daemons
 
@@ -119,10 +130,11 @@ Pass extra SSH options (port, identity file, jump host) with `--ssh-arg`, e.g.
 
 ```bash
 harness-cli install-hooks claude-code
+harness-cli install-hooks opencode
 harness-cli notify --surface "$HARNESS_SURFACE" --body "Approval required"
 ```
 
-Per-agent setup lives in [docs/agent-hooks/README.md](docs/agent-hooks/README.md). Agents without a hook mechanism still notify you through Harness's built-in activity detection once they're running.
+Per-agent setup lives in [docs/agent-hooks/README.md](docs/agent-hooks/README.md). OpenCode hook install is global plugin only: `harness-cli install-hooks opencode` writes `~/.config/opencode/plugins/harness-notify.ts`, covering events such as `permission.asked`. Harness does not install project-local `.opencode/plugins/` files and does not create or use `.opencode/hooks.json`; see the official OpenCode plugin docs for [local plugin files](https://opencode.ai/docs/plugins/#from-local-files), [events](https://opencode.ai/docs/plugins/#events), and [notifications](https://opencode.ai/docs/plugins/#send-notifications).
 
 ## Keyboard shortcuts
 
@@ -132,14 +144,14 @@ Per-agent setup lives in [docs/agent-hooks/README.md](docs/agent-hooks/README.md
 | New workspace | `Cmd+Shift+N` |
 | Close tab | `Cmd+W` |
 | Split horizontal / vertical | `Cmd+D` / `Cmd+Shift+D` |
-| Switch to tab 1–9 | `Cmd+1` … `Cmd+9` |
+| Switch to tab 1 to 9 | `Cmd+1` ... `Cmd+9` |
 | Previous / next tab | `Cmd+Shift+[` / `Cmd+Shift+]` |
 | Jump to waiting agent | `Cmd+Shift+U` |
 | Command palette | `Cmd+K` |
 | Settings | `Cmd+,` |
 | Toggle sidebar | `Cmd+\` |
 
-The command prefix (default `Ctrl-A`) adds the full pane / session keymap on top — press prefix then `?` for the cheatsheet.
+The command prefix (default `Ctrl-A`) adds the full pane / session keymap on top. Press prefix then `?` for the cheatsheet.
 
 ## Build from source
 
@@ -161,7 +173,7 @@ make bench
 
 CI runs all three on every push: the deterministic suite, the live daemon tests, and a release build. The live tests spin up a real daemon over a Unix socket and a real PTY, so run them locally before changing the daemon, IPC, or PTY code.
 
-`make bench` runs opt-in release benchmarks and prints machine-readable JSON timing lines. Treat those as a structural baseline, not a pass/fail gate — GPU and timing numbers vary by machine.
+`make bench` runs opt-in release benchmarks and prints machine-readable JSON timing lines. Treat those as a structural baseline, not a pass/fail gate. GPU and timing numbers vary by machine.
 
 Renderer tests use structural offscreen readbacks by default. Set `HARNESS_WRITE_RENDER_SNAPSHOTS=1` when running `swift test --filter MetalRendererTests` to write PNGs under `/tmp/HarnessRenderSnapshots` for human debugging only.
 

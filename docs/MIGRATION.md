@@ -1,7 +1,7 @@
 # Migrating to Harness
 
 Harness has tested migration paths for terminal config import and **tmux**
-commands/keybindings. Both rest on first-party code — no plug-ins.
+commands/keybindings. Both rest on first-party code, with no plug-ins.
 
 ## Import Terminal Colors And Fonts
 
@@ -12,8 +12,12 @@ colors (background/foreground/cursor/selection/bold/cursor-text), the 16-color A
 font **face**, `background-opacity`, `background-blur`, window padding, cursor style, cursor
 blink, copy-on-select, and the default shell.
 
-**What's not imported:** the font **size** is Harness-owned (default 16) — a terminal's size
+**What's not imported:** the font **size** is Harness-owned (default 16). A terminal's size
 preference doesn't carry over, only the face does.
+
+If no imported face is available, Harness defaults to `JetBrainsMono Nerd Font`. macOS handles unavailable font faces by substituting an installed monospace face such as Menlo, and missing glyphs may fall back per character. To choose a different face or size, open **Settings > Appearance > Font**.
+
+Imported default shells become Harness's configured shell. New GUI panes try that configured shell first, then fall back through the daemon's `$SHELL`, `/bin/zsh`, `/bin/bash`, and `/bin/sh`. Fish works when selected and executable.
 
 **Sources tried:** the importer checks its supported compatibility paths in order and
 merges matches, with later files overriding earlier files.
@@ -42,11 +46,11 @@ Switch to **Full Terminal** mode (Settings → Terminal → Experience). Your mu
 memory works immediately:
 
 - **Prefix key** `Ctrl-A` (change in Settings → Keys, or blank it to disable).
-- **Splits / panes** — `prefix %` / `prefix "`, `prefix z` zoom, `prefix x` kill,
+- **Splits / panes**, `prefix %` / `prefix "`, `prefix z` zoom, `prefix x` kill,
   `prefix hjkl`/arrows to move, `prefix o`/`;` cycle, `prefix Space` cycle layouts.
 - **Copy mode**, **paste buffers**, **`-t session:window.pane` targets**, **`base-index` /
   `pane-base-index`**, **command prompt** (`prefix :`), **attach/detach**.
-- **Detach / reattach** — `harness-cli attach` (one pane) or `harness-cli attach-window` (the
+- **Detach / reattach**: `harness-cli attach` (one pane) or `harness-cli attach-window` (the
   full split layout, even over ssh); control mode via `harness-cli -CC`.
 
 See the [multiplexer guide](MULTIPLEXER_GUIDE.md) for the full command and shortcut tour.
@@ -60,24 +64,24 @@ See the [multiplexer guide](MULTIPLEXER_GUIDE.md) for the full command and short
 | `prefix %` / `"` | Same (splits) |
 | `prefix o` / `q` / `z` / `x` | Same (cycle / numbers / zoom / kill) |
 | `prefix [` then vi keys | Same (copy mode) |
-| `prefix d` | Same (detach) — or View ▸ Detach Pane |
+| `prefix d` | Same (detach), or View ▸ Detach Pane |
 | `prefix :` command-prompt | Same `:` prompt |
 | `tmux a` (attach) | `harness-cli attach-window` (full layout, incl. ssh) |
 | `tmux send-keys` | `harness-cli send-keys --surface <id> --keys "…"` |
 | `tmux capture-pane` | `harness-cli capture-pane --surface <id>` (`-S/-E/-e/-J`) |
 | `$TMUX` set inside a pane | `$HARNESS` (and `$HARNESS_SURFACE` for the pane id) |
 
-The default prefix differs (`Ctrl-A` vs `Ctrl-B`) — change it in Settings if you prefer `Ctrl-B`.
+The default prefix differs (`Ctrl-A` vs `Ctrl-B`), change it in Settings if you prefer `Ctrl-B`.
 
 ### Bringing your `.tmux.conf` over
 
 Two mechanisms, split by what the line *is* (verified by `TmuxMigrationTests`):
 
 **Commands and bindings** run through the same parser as the command prompt. Put your `bind`
-lines (and any one-shot commands) in a file and `source-file` it — `#` comments are skipped:
+lines (and any one-shot commands) in a file and `source-file` it, `#` comments are skipped:
 
 ```tmux
-# ~/.harness.conf  — commands + bindings only
+# ~/.harness.conf , commands + bindings only
 bind | split-window -h
 bind - split-window -v
 bind -r H resize-pane -L 2
@@ -90,7 +94,7 @@ bind -r H resize-pane -L 2
 Persistent key bindings also live in `keybindings.json` (merged over the defaults); set them
 with `harness-cli bind-key` / `unbind-key`, or edit the file directly.
 
-**Options** (`status-left`, `base-index`, mouse, …) are *not* commands — set them with
+**Options** (`status-left`, `base-index`, mouse, …) are *not* commands, set them with
 `harness-cli set-option` (`setw` for window scope), which is the same store the Settings ▸
 Advanced page edits:
 
@@ -103,5 +107,5 @@ harness-cli set-option -g base-index 1
 ### Deliberate divergences
 
 A few tmux concepts are intentionally *not* reproduced because they conflict with Harness's
-value-typed, session-owned-tabs, always-visible-sessions model — grouped sessions and some
+value-typed, session-owned-tabs, always-visible-sessions model, grouped sessions and some
 session-lifecycle options. These are design choices, not gaps.

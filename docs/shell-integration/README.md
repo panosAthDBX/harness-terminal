@@ -2,17 +2,17 @@
 
 Harness understands the **OSC 133** shell-integration protocol. When your shell emits these
 marks, Harness records where each prompt begins and whether the command launched from it
-succeeded — powering:
+succeeded, powering:
 
 - **Jump-to-prompt** navigation (previous/next prompt) in the terminal and copy mode.
 - A **prompt gutter** with a success/failure indicator (green for exit 0, red otherwise).
 
-The marks are purely informational — Harness never writes anything back to your shell, and a
+The marks are purely informational. Harness never writes anything back to your shell, and a
 shell without integration behaves exactly as before.
 
 ## Install
 
-One command — it drops the script under the Harness home and wires a guarded `source` line into
+One command drops the script under the Harness home and wires a guarded `source` line into
 your shell's rc (idempotent, and your rc is backed up first):
 
 ```bash
@@ -25,7 +25,7 @@ Then restart your shell (or open a new Harness pane). Each snippet is a no-op ou
 terminal (it checks `$HARNESS`, which the daemon exports into every pane), so it's safe to keep
 in your rc everywhere.
 
-**Manual install** — the script is written to
+**Manual install**: the script is written to
 `~/Library/Application Support/Harness/shell-integration/harness.<shell>`; add the matching line
 yourself instead:
 
@@ -37,12 +37,19 @@ yourself instead:
 
 The copies in `docs/shell-integration/` match the scripts installed by Harness.
 
+
+## Shell choice for new panes
+
+Shell integration only marks prompts. The shell that new GUI panes launch comes from Harness settings, not this snippet.
+
+Harness uses this precedence for new GUI panes: the configured **Settings > Terminal > Shell** value, then the daemon's `$SHELL`, then `/bin/zsh`, `/bin/bash`, and `/bin/sh`. If the configured shell points to fish and is executable, Harness starts fish with its normal login behavior. If the configured path is missing or not executable, Harness safely falls back to the next executable shell.
+
 ## What gets emitted
 
 Each snippet emits the two marks Harness consumes:
 
-- `OSC 133 ; A` — **prompt start**, on the line where your shell prompt is drawn.
-- `OSC 133 ; D ; <exit>` — **command finished**, carrying the previous command's exit status.
+- `OSC 133 ; A`, **prompt start**, on the line where your shell prompt is drawn.
+- `OSC 133 ; D ; <exit>`, **command finished**, carrying the previous command's exit status.
 
 The optional `B` (command-input start) and `C` (output start) delimiters are intentionally not
 emitted: they aren't needed for prompt navigation or the status gutter, and leaving them out

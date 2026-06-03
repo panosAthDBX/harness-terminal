@@ -1,18 +1,18 @@
 # Harness as a terminal multiplexer
 
 Harness is a native terminal multiplexer: a prefix key, splits, tabs, sessions, copy mode,
-detach/attach, and a `:` command line — all driven by one shared verb vocabulary
+detach/attach, and a `:` command line, all driven by one shared verb vocabulary
 (`split-window`, `new-window`, `kill-pane`, `copy-mode`…). It is **self-contained**: the daemon,
 the session model, the compositor, and the VT engine are all first-party Swift, with no external
 runtime under the hood.
 
 This guide is the narrative "how it works + shortcuts" tour. For exhaustive references see:
 
-- [HARNESS_TMUX_CAPABILITIES.pdf](HARNESS_TMUX_CAPABILITIES.pdf) — printable setup and shortcuts guide.
-- [KEYBINDINGS.md](KEYBINDINGS.md) — every default binding + the key-spec syntax.
-- [COMMANDS.md](COMMANDS.md) — the full command grammar.
-- [MIGRATION.md](MIGRATION.md) — moving an existing terminal/multiplexer setup over.
-- [MODES.md](MODES.md) — Plain / Persistent / Full / Agent experience modes.
+- [HARNESS_TMUX_CAPABILITIES.pdf](HARNESS_TMUX_CAPABILITIES.pdf), printable setup and shortcuts guide.
+- [KEYBINDINGS.md](KEYBINDINGS.md), every default binding + the key-spec syntax.
+- [COMMANDS.md](COMMANDS.md), the full command grammar.
+- [MIGRATION.md](MIGRATION.md), moving an existing terminal/multiplexer setup over.
+- [MODES.md](MODES.md), Plain / Persistent / Full / Agent experience modes.
 
 ---
 
@@ -32,7 +32,7 @@ The terms "tab" and "window" are used interchangeably in the verbs (`new-window`
 `next-window`/`previous-window` verbs move between tabs).
 
 **Who owns what:** a background **daemon** (`HarnessDaemon`, kept alive by launchd) owns all
-session truth and every PTY. The app and `harness-cli` are just clients — so your shells keep
+session truth and every PTY. The app and `harness-cli` are just clients, so your shells keep
 running when the app quits, across crashes, and you can reattach from another window or over ssh.
 
 ---
@@ -65,11 +65,11 @@ Everything below that says "`prefix X`" means: tap the prefix, release, then tap
 | `prefix z` | **Zoom** the active pane to fill the tab (toggle) |
 | `prefix x` | Kill the active pane |
 | `prefix Shift+←/→/↑/↓` | Resize the pane (hold under the prefix to keep nudging) |
-| `prefix q` | Show numbered pane overlay — press a digit to jump |
+| `prefix q` | Show numbered pane overlay, press a digit to jump |
 | `prefix Space` | Cycle through the layout presets |
 
-**Layouts:** `even-horizontal`, `even-vertical`, `main-horizontal`, `main-vertical`, `tiled` —
-cycle with `prefix Space`, or pick one with `:select-layout tiled`. Also `rotate-window`,
+**Layouts:** `even-horizontal`, `even-vertical`, `main-horizontal`, `main-vertical`, `tiled`.
+Cycle with `prefix Space`, or pick one with `:select-layout tiled`. Also `rotate-window`,
 `break-pane` (pop a pane into its own tab), and `join-pane`.
 
 **Move a pane between tabs:** `prefix m` marks the active pane, then `prefix j` joins that marked
@@ -90,7 +90,7 @@ pane into the current one (Harness's `move-pane`/`join-pane`).
 | `prefix c` | New tab |
 | `prefix n` / `prefix p` | Next / previous tab |
 | `prefix ,` | Rename the current tab |
-| `Cmd-1` … `Cmd-9` | Jump straight to tab 1–9 (shown as `⌘N` on the pills) |
+| `Cmd-1` ... `Cmd-9` | Jump straight to tab 1 to 9 (shown as `⌘N` on the pills) |
 | `Cmd-Shift-[` / `Cmd-Shift-]` | Previous / next tab |
 | `Cmd-T` / `Cmd-W` | New tab / close tab |
 
@@ -124,7 +124,7 @@ Enter with **`prefix [`**. Copy mode is modal and vim-flavored (`mode-keys vi`):
 | `w` / `b` | Next / previous word |
 | `g` / `G` | Top / bottom of history |
 | `PageUp`/`PageDown`, `C-u`/`C-d` | Page / half-page scroll |
-| `[` / `]` | **Jump to previous / next shell prompt** (needs OSC 133 — see §10) |
+| `[` / `]` | **Jump to previous / next shell prompt** (needs OSC 133, see §10) |
 | `v` / `V` / `C-v` | Start char / line / rectangle (block) selection |
 | `/` … `Enter`, `?` | Search forward / backward; `n` / `N` cycle matches |
 | `y` or `Enter` | Yank selection to the clipboard **and** a paste buffer, then exit |
@@ -144,8 +144,8 @@ Your shells live in the daemon, so a pane can be "released" and re-grabbed witho
 anything.
 
 - **`prefix d`** detaches the calling client.
-- In the app: **View ▸ Detach Pane** releases the active pane — it dims with a
-  *"Pane released — click to re-grab"* overlay and stops updating while the PTY keeps running.
+- In the app: **View ▸ Detach Pane** releases the active pane, it dims with a
+  *"Pane released, click to re-grab"* overlay and stops updating while the PTY keeps running.
   **View ▸ Reattach Pane** (or a click on the overlay) re-grabs it and replays scrollback.
 - Two windows (or an ssh `attach-window`) can watch the same session; detaching one leaves the
   others live. The PTY only goes away when its tab/pane is actually closed.
@@ -160,7 +160,7 @@ Anything you can bind, you can type.
   (`split-window -v`, `select-layout tiled`, `bind-key -T prefix S new-session`), with `↑`/`↓`
   history.
 - **`Cmd-K`** opens the command palette (fuzzy actions + themes).
-- From a shell, **`harness-cli <verb>`** runs the same vocabulary (and a lot more — buffers,
+- From a shell, **`harness-cli <verb>`** runs the same vocabulary (and a lot more, buffers,
   hooks, options, layout ops). Run `harness-cli` with no args for the full list.
 - Rebind anything: `harness-cli bind-key C-x x kill-pane`, multi-step with `;`
   (`bind-key C-x s "split-window -h ; copy-mode"`). Bindings persist in
@@ -171,10 +171,10 @@ Anything you can bind, you can type.
 
 ---
 
-## 9. Attach over ssh — the compositor
+## 9. Attach over ssh, the compositor
 
-`harness-cli attach-window` renders a tab's **entire split layout** — every pane, borders,
-the status line, the active cursor — into any plain terminal, including over ssh. It's
+`harness-cli attach-window` renders a tab's **entire split layout**, every pane, borders,
+the status line, the active cursor, into any plain terminal, including over ssh. It's
 Harness-native and fully client-side:
 
 ```bash
@@ -214,7 +214,19 @@ remove` and `--ssh-arg`.
 
 ---
 
-## 10. Shell integration (prompt marks + the success/failure gutter)
+## 10. Appearance, shell, and font behavior
+
+Harness owns the terminal canvas and chrome. Choose **Settings > Appearance > Appearance** to keep the selected Harness theme or to follow macOS light and dark mode with Harness's `macos-system` appearance mode. That is separate from OpenCode's TUI `system` theme in `tui.json`; OpenCode's setting only affects OpenCode inside the terminal.
+
+Program ANSI output stays untouched unless **Apply theme colors to terminal output** is enabled in Harness settings. With the default off, full-screen apps and command output keep their own SGR colors while Harness still themes the canvas, cursor, selection, and OSC color replies.
+
+New panes created by the GUI use the configured Harness shell first. If it is blank, missing, or not executable, the daemon falls back through `$SHELL`, `/bin/zsh`, `/bin/bash`, and `/bin/sh`. Fish is supported when selected and executable, and Harness starts it with fish login behavior.
+
+Harness asks macOS for the configured font, defaulting to `JetBrainsMono Nerd Font` at 16 pt. If the face is unavailable, macOS can substitute a system monospace font such as Menlo; missing glyphs can fall back per character. Change it in **Settings > Appearance > Font**.
+
+---
+
+## 11. Shell integration (prompt marks + the success/failure gutter)
 
 Harness understands **OSC 133** semantic prompts. Once installed, each shell prompt is marked and
 each command's exit status is recorded, which powers:
@@ -232,29 +244,37 @@ harness-cli install-shell-integration            # auto-detects $SHELL
 harness-cli install-shell-integration all          # bash + zsh + fish
 ```
 
-Restart your shell (or open a new pane). The snippet is a no-op outside a Harness pane — it gates
+Restart your shell (or open a new pane). The snippet is a no-op outside a Harness pane. It gates
 on `$HARNESS` (exported by the daemon into every pane). Details:
 [shell-integration/README.md](shell-integration/README.md).
 
 ---
 
-## 11. Agent hooks (notifications)
+## 12. Agent hooks (notifications)
 
-Harness detects coding agents (Claude Code, Codex, Cursor, Pi, Hermes, OpenClaw, and more) and
-can notify you when one stops or needs input. For the agents with a hook mechanism, wire it up
-once:
+Harness detects coding agents (Claude Code, Codex, OpenCode, Cursor, Pi, Hermes, OpenClaw, and
+more) and can notify you when one stops or needs input. For the agents with a hook mechanism, wire
+it up once:
 
 ```bash
-harness-cli install-hooks claude-code      # or codex | cursor | pi | hermes | openclaw
+harness-cli install-hooks claude-code      # or codex | cursor | pi | hermes | openclaw | opencode
 ```
 
-It deep-merges into the agent's own config (e.g. `~/.claude/settings.json`), backing it up first
-— never clobbering. Agents without a hook mechanism (aider, gemini, goose, opencode) are detected
-automatically and notify via Harness's activity path, so there's nothing to install for them.
+For JSON-hook agents, Harness deep-merges into the agent's own config (e.g.
+`~/.claude/settings.json`), backing it up first and never clobbering. OpenCode
+uses a global plugin instead: `~/.config/opencode/plugins/harness-notify.ts`.
+That plugin listens for OpenCode events including `permission.asked` and sends
+notifications back to the Harness pane. Harness does not install project-local
+`.opencode/plugins/` files, and Harness does not create or use `.opencode/hooks.json`.
+Official OpenCode plugin references:
+https://opencode.ai/docs/plugins/#from-local-files,
+https://opencode.ai/docs/plugins/#events, and
+https://opencode.ai/docs/plugins/#send-notifications. Other detection-only
+agents (aider, gemini, goose) follow the same no-install boundary.
 
 ---
 
-## 12. macOS shortcuts (no prefix)
+## 13. macOS shortcuts (no prefix)
 
 | Shortcut | Action | | Shortcut | Action |
 |---|---|---|---|---|
@@ -270,7 +290,7 @@ automatically and notify via Harness's activity path, so there's nothing to inst
 
 ---
 
-## 13. One-screen cheat sheet
+## 14. One-screen cheat sheet
 
 ```
 PREFIX = Ctrl-A   (Settings ▸ Keys to change;  prefix ? = live cheatsheet)
@@ -294,5 +314,5 @@ COMMAND      prefix :  or Cmd-;     Cmd-K palette     harness-cli <verb>
 
 SETUP        harness-cli install                      (CLI + daemon + completion)
              harness-cli install-shell-integration    (OSC 133 prompt gutter)
-             harness-cli install-hooks <agent>        (agent notifications)
+             harness-cli install-hooks <agent>        (hook-capable agent notifications)
 ```
