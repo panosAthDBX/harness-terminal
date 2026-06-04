@@ -24,7 +24,7 @@ public enum KeybindingsStore {
             HarnessPaths.backupCorruptFile(at: fileURL, label: "Harness")
             return defaults
         }
-        var merged = migrateStoredDefaults(stored)
+        var merged = stored
         for defaultTable in defaults.tableList {
             if var existing = merged.table(defaultTable.id) {
                 for binding in defaultTable.bindings where existing.lookup(binding.spec) == nil {
@@ -40,34 +40,6 @@ public enum KeybindingsStore {
         return merged
     }
 
-    private static func migrateStoredDefaults(_ stored: KeyTableSet) -> KeyTableSet {
-        var migrated = stored
-        replaceIfShippedDefault(&migrated, spec: KeySpec(key: "n"), oldCommand: .nextWindow, oldNote: "Next tab")
-        replaceIfShippedDefault(&migrated, spec: KeySpec(key: "p"), oldCommand: .previousWindow, oldNote: "Previous tab")
-        for index in 0 ... 9 {
-            replaceIfShippedDefault(
-                &migrated,
-                spec: KeySpec(key: String(index)),
-                oldCommand: .selectWorkspace(index: index),
-                oldNote: "Workspace \(index)"
-            )
-        }
-        return migrated
-    }
-
-    private static func replaceIfShippedDefault(
-        _ tables: inout KeyTableSet,
-        spec: KeySpec,
-        oldCommand: Command,
-        oldNote: String
-    ) {
-        guard let current = tables.table(.prefix)?.lookup(spec),
-              current.command == oldCommand,
-              current.note == oldNote,
-              let replacement = KeyTableSet.defaults.table(.prefix)?.lookup(spec)
-        else { return }
-        tables.setBinding(table: .prefix, binding: replacement)
-    }
 
     @discardableResult
     public static func save(_ set: KeyTableSet) throws -> URL {
