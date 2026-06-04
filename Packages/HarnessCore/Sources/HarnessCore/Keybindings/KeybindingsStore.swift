@@ -24,9 +24,6 @@ public enum KeybindingsStore {
             HarnessPaths.backupCorruptFile(at: fileURL, label: "Harness")
             return defaults
         }
-        // Merge: stored tables win for any spec they explicitly define, but
-        // defaults fill in unset spec slots and unset tables. Removing an
-        // entry from the file = falling back to default.
         var merged = stored
         for defaultTable in defaults.tableList {
             if var existing = merged.table(defaultTable.id) {
@@ -42,6 +39,7 @@ public enum KeybindingsStore {
         }
         return merged
     }
+
 
     @discardableResult
     public static func save(_ set: KeyTableSet) throws -> URL {
