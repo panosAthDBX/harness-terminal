@@ -84,7 +84,7 @@ final class HarnessSettingsTests: XCTestCase {
             { "fontSize": 14, "appearanceMode": "macos-system" }
             """.utf8).write(to: root.appendingPathComponent("settings.json"))
 
-            let settings = HarnessSettings.load()
+            let settings = HarnessSettings.load(imported: nil)
 
             XCTAssertEqual(settings.appearanceMode, .macOSSystem)
             XCTAssertEqual(settings.systemLightThemeName, "Zenwritten Light")
@@ -119,7 +119,7 @@ final class HarnessSettingsTests: XCTestCase {
             """.utf8).write(to: root.appendingPathComponent("settings.json"))
 
             try withResetColorMigration {
-                let settings = HarnessSettings.load()
+                let settings = HarnessSettings.load(imported: nil)
                 XCTAssertTrue(settings.vividColors)
                 XCTAssertEqual(settings.colorRendering, .vivid)
             }
@@ -134,7 +134,7 @@ final class HarnessSettingsTests: XCTestCase {
             """.utf8).write(to: root.appendingPathComponent("settings.json"))
 
             try withResetColorMigration {
-                let settings = HarnessSettings.load()
+                let settings = HarnessSettings.load(imported: nil)
                 XCTAssertFalse(settings.vividColors)
                 XCTAssertEqual(settings.colorRendering, .accurate)
             }
@@ -149,7 +149,7 @@ final class HarnessSettingsTests: XCTestCase {
             """.utf8).write(to: root.appendingPathComponent("settings.json"))
 
             try withResetColorMigration {
-                let settings = HarnessSettings.load()
+                let settings = HarnessSettings.load(imported: nil)
                 XCTAssertEqual(settings.colorRendering, .vivid)
                 XCTAssertTrue(settings.vividColors)
             }
@@ -344,7 +344,7 @@ final class HarnessSettingsTests: XCTestCase {
             }
             """.utf8).write(to: root.appendingPathComponent("settings.json"))
 
-            let settings = HarnessSettings.load()
+            let settings = HarnessSettings.load(imported: splitThemeImport)
 
             XCTAssertEqual(settings.appearanceMode, .macOSSystem)
             XCTAssertEqual(settings.systemLightThemeName, "Tango Adapted")
@@ -366,7 +366,7 @@ final class HarnessSettingsTests: XCTestCase {
             }
             """.utf8).write(to: root.appendingPathComponent("settings.json"))
 
-            let settings = HarnessSettings.load()
+            let settings = HarnessSettings.load(imported: splitThemeImport)
 
             XCTAssertEqual(settings.appearanceMode, .macOSSystem)
             XCTAssertEqual(settings.systemLightThemeName, "Tango Adapted")
@@ -460,7 +460,7 @@ final class HarnessSettingsTests: XCTestCase {
             // user's real settings the moment a partial write or disk glitch produced bad JSON).
             try Data("{ this is not valid json ".utf8).write(to: url)
 
-            let settings = HarnessSettings.load()
+            let settings = HarnessSettings.load(imported: nil)
             XCTAssertEqual(settings.fontSize, HarnessSettings.makeDefaults(imported: nil).fontSize)
 
             let backup = url.appendingPathExtension("corrupt")
@@ -486,19 +486,17 @@ final class HarnessSettingsTests: XCTestCase {
     }
 
 
-    private func withTemporaryHarnessHome(
-        ghosttyConfig: String = "theme = dark:TokyoNight Storm,light:Tango Adapted\n",
-        _ body: (URL) throws -> Void
-    ) throws {
+    private var splitThemeImport: ImportedTerminalConfig {
+        ImportedTerminalConfig(
+            systemLightThemeName: "Tango Adapted",
+            systemDarkThemeName: "TokyoNight Storm"
+        )
+    }
+
+    private func withTemporaryHarnessHome(_ body: (URL) throws -> Void) throws {
         let previousHome = getenv("HARNESS_HOME").map { String(cString: $0) }
         let root = URL(fileURLWithPath: "/tmp/harness-settings-\(UUID().uuidString.prefix(8))", isDirectory: true)
         setenv("HARNESS_HOME", root.path, 1)
-        try? FileManager.default.createDirectory(
-            at: root.appendingPathComponent("Library/Application Support/com.mitchellh.ghostty"),
-            withIntermediateDirectories: true
-        )
-        try? Data(ghosttyConfig.utf8)
-            .write(to: root.appendingPathComponent("Library/Application Support/com.mitchellh.ghostty/config"))
         defer {
             if let previousHome {
                 setenv("HARNESS_HOME", previousHome, 1)
