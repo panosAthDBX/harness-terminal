@@ -1,4 +1,5 @@
 import XCTest
+import HarnessCore
 @testable import HarnessCLI
 
 /// Coverage for the CLI's pure argument-parsing helpers. `harness-cli` previously had no test
@@ -30,5 +31,80 @@ final class HarnessCLITests: XCTestCase {
         // Documents current behavior: the token immediately after the flag is taken verbatim, even
         // if it itself looks like a flag — callers validate the value, not flagValue.
         XCTAssertEqual(HarnessCLI.flagValue(["--tab", "--oops"], flag: "--tab"), "--oops")
+    }
+
+    func testRemoteAttachTitleUpdateUsesRemoteAgentDisplayName() {
+        let localSurface = "68A813BF-596B-4456-BFBD-62A50AFFB72D"
+        let remoteAgent = AgentSnapshot(
+            kind: .hermes,
+            executable: "/Users/remote/.local/bin/hermes",
+            pid: 123,
+            activity: .working,
+            lastActivityAt: Date(timeIntervalSince1970: 0)
+        )
+
+        let request = HarnessCLI.remoteAttachTitleUpdateRequest(
+            args: ["attach", "--host", "ella", "--surface", "remote-surface"],
+            environment: ["HARNESS_SURFACE": localSurface],
+            remoteAgentResponse: .agentInfo(remoteAgent)
+        )
+
+        guard case let .updateTabTitle(surfaceID, title) = request else {
+            return XCTFail("expected updateTabTitle request")
+        }
+        XCTAssertEqual(surfaceID, localSurface)
+        XCTAssertEqual(title, "Hermes")
+    }
+
+    func testRemoteAttachTitleUpdateRequiresHostFlag() {
+        let remoteAgent = AgentSnapshot(
+            kind: .hermes,
+            executable: "hermes",
+            pid: 123,
+            activity: .working,
+            lastActivityAt: Date(timeIntervalSince1970: 0)
+        )
+
+        XCTAssertNil(HarnessCLI.remoteAttachTitleUpdateRequest(
+            args: ["attach", "--surface", "remote-surface"],
+            environment: ["HARNESS_SURFACE": "local-surface"],
+            remoteAgentResponse: .agentInfo(remoteAgent)
+        ))
+    }
+
+    func testRemoteAttachTitleUpdateRequiresLocalHarnessSurface() {
+        let remoteAgent = AgentSnapshot(
+            kind: .hermes,
+            executable: "hermes",
+            pid: 123,
+            activity: .working,
+            lastActivityAt: Date(timeIntervalSince1970: 0)
+        )
+
+        XCTAssertNil(HarnessCLI.remoteAttachTitleUpdateRequest(
+            args: ["attach", "--host", "ella", "--surface", "remote-surface"],
+            environment: [:],
+            remoteAgentResponse: .agentInfo(remoteAgent)
+        ))
+
+        XCTAssertNil(HarnessCLI.remoteAttachTitleUpdateRequest(
+            args: ["attach", "--host", "ella", "--surface", "remote-surface"],
+            environment: ["HARNESS_SURFACE": ""],
+            remoteAgentResponse: .agentInfo(remoteAgent)
+        ))
+    }
+
+    func testRemoteAttachTitleUpdateRequiresDetectedRemoteAgent() {
+        XCTAssertNil(HarnessCLI.remoteAttachTitleUpdateRequest(
+            args: ["attach", "--host", "ella", "--surface", "remote-surface"],
+            environment: ["HARNESS_SURFACE": "local-surface"],
+            remoteAgentResponse: .agentInfo(nil)
+        ))
+
+        XCTAssertNil(HarnessCLI.remoteAttachTitleUpdateRequest(
+            args: ["attach", "--host", "ella", "--surface", "remote-surface"],
+            environment: ["HARNESS_SURFACE": "local-surface"],
+            remoteAgentResponse: .error("not found")
+        ))
     }
 }

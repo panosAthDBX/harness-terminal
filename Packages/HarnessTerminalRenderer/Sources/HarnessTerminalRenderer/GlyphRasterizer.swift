@@ -153,43 +153,12 @@ public final class GlyphRasterizer {
         CTFontCreateCopyWithSymbolicTraits(font, size, nil, traits, traits) ?? font
     }
 
-    /// Resolve the user's font family to a real `CTFont`, working around `CTFontCreateWithName`'s
-    /// silent substitution. It resolves PostScript names first and only loosely matches family /
-    /// display names; when it can't match, it returns a system font with no Nerd glyphs (the root
-    /// of #37). If the resolved face's family/PostScript name doesn't match what was requested,
-    /// retry via an explicit family-name descriptor before accepting the substitute (which the
-    /// bundled symbol font then covers for icon codepoints).
-    private static func resolvePrimaryFont(family: String, size: CGFloat) -> CTFont {
-        let byName = CTFontCreateWithName(family as CFString, size, nil)
-        if fontNameMatches(byName, requested: family) { return byName }
-        let descriptor = CTFontDescriptorCreateWithAttributes(
-            [kCTFontFamilyNameAttribute as String: family] as CFDictionary
-        )
-        let byFamily = CTFontCreateWithFontDescriptor(descriptor, size, nil)
-        return fontNameMatches(byFamily, requested: family) ? byFamily : byName
-    }
-
     /// Resolve the bundled "Symbols Nerd Font Mono" by name, verifying it actually activated
     /// (PostScript name `SymbolsNFM`) rather than silently substituting. `nil` when the font isn't
     /// available to this process (headless tests / the CLI compositor).
     private static func resolveSymbolFallback(size: CGFloat) -> CTFont? {
         let font = CTFontCreateWithName("Symbols Nerd Font Mono" as CFString, size, nil)
         return (CTFontCopyPostScriptName(font) as String) == "SymbolsNFM" ? font : nil
-    }
-
-    /// Whether a resolved font's family or PostScript name matches the requested family, ignoring
-    /// case / spaces / hyphens / underscores. The common case (`CTFontCreateWithName` already
-    /// resolved correctly) matches on the family name and returns immediately, so this never
-    /// changes behavior for a correctly-resolved font.
-    private static func fontNameMatches(_ font: CTFont, requested: String) -> Bool {
-        let want = normalizedFontName(requested)
-        guard !want.isEmpty else { return true }
-        return normalizedFontName(CTFontCopyFamilyName(font) as String) == want
-            || normalizedFontName(CTFontCopyPostScriptName(font) as String) == want
-    }
-
-    private static func normalizedFontName(_ name: String) -> String {
-        name.lowercased().filter { !$0.isWhitespace && $0 != "-" && $0 != "_" }
     }
 
     private static func isLastResort(_ font: CTFont) -> Bool {
@@ -424,7 +393,7 @@ public final class GlyphRasterizer {
 
         ctx.setAllowsAntialiasing(true)
         ctx.setShouldAntialias(true)
-        ctx.setShouldSmoothFonts(true)
+        ctx.setShouldSmoothFonts(false)
         ctx.setFillColor(gray: 1, alpha: 1) // white ink on the zero-cleared (black) bitmap
         ctx.scaleBy(x: scale, y: scale)
 
@@ -477,8 +446,8 @@ public final class GlyphRasterizer {
     private func thickenCoverage(_ coverage: [UInt8], width: Int, height: Int, strength: Int) -> [UInt8] {
         guard width > 0, height > 0 else { return coverage }
         let clampedStrength = min(255, max(0, strength))
-        let lightestSupportedBoost = 12
-        let strongestSupportedBoost = 30
+        let lightestSupportedBoost = 1
+        let strongestSupportedBoost = 2
         let amount = lightestSupportedBoost + ((strongestSupportedBoost - lightestSupportedBoost) * clampedStrength + 127) / 255
         var out = coverage
         for y in 0 ..< height {
@@ -487,8 +456,6 @@ public final class GlyphRasterizer {
                 var neighbor = Int(coverage[index])
                 if x > 0 { neighbor = max(neighbor, Int(coverage[index - 1])) }
                 if x + 1 < width { neighbor = max(neighbor, Int(coverage[index + 1])) }
-                if y > 0 { neighbor = max(neighbor, Int(coverage[index - width])) }
-                if y + 1 < height { neighbor = max(neighbor, Int(coverage[index + width])) }
                 let current = Int(coverage[index])
                 let boosted = current + ((neighbor - current) * amount + 127) / 255
                 out[index] = UInt8(min(255, max(current, boosted)))

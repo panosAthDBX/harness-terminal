@@ -152,7 +152,7 @@ enum MainMenuBuilder {
         // Remote — connect the GUI to a HarnessDaemon on another machine over an SSH tunnel.
         // The submenu is rebuilt on open (NSMenuDelegate) so it reflects saved hosts + which one
         // is currently connected.
-        let remote = NSMenuItem()
+        let remote = NSMenuItem(title: "Remote", action: nil, keyEquivalent: "")
         let remoteMenu = NSMenu(title: "Remote")
         remoteMenu.delegate = MenuTarget.shared
         remote.submenu = remoteMenu

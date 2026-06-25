@@ -258,6 +258,8 @@ public final class HarnessTerminalSurfaceView: NSView {
     private let pendingFeed = FeedCounter()
     private var fontFamily: String
     private var fontSize: CGFloat
+    private var fontThicken: Bool
+    private var fontThickenStrength: Int
     /// The canvas (default) background — used as the Metal clear color and (at
     /// `canvasOpacity`) for default-bg cells. Resolved by the host through the same
     /// `ThemeManager.resolvedCanvas` the chrome uses, so terminal and chrome never seam.
@@ -445,6 +447,8 @@ public final class HarnessTerminalSurfaceView: NSView {
         self.canvasOpacity = 1
         self.fontFamily = fontFamily
         self.fontSize = fontSize
+        self.fontThicken = false
+        self.fontThickenStrength = 255
         self.colorRendering = resolvedColorRendering
         self.colorGamut = resolvedGamut
         self.offMainParserFramePipelineEnabled = offMainParserFramePipeline
@@ -577,6 +581,9 @@ public final class HarnessTerminalSurfaceView: NSView {
 
     var testingRenderSynchronized: Bool { scheduler.synchronized }
     var testingRenderPending: Bool { scheduler.needsRender }
+    var testingFontThickenConfiguration: (enabled: Bool, strength: Int) {
+        (fontThicken, fontThickenStrength)
+    }
 
     /// The full appearance the host computes from settings + theme:
     /// - `canvasBackground/Foreground/cursor` come from `ThemeManager.resolvedCanvas`, so
@@ -632,6 +639,8 @@ public final class HarnessTerminalSurfaceView: NSView {
         )
         let resolvedTextRendering = textRendering ?? (linearBlending ? .crisp : .native)
         glyphGamma = resolvedTextRendering.glyphGamma
+        fontThicken = resolvedTextRendering == .crisp
+        fontThickenStrength = 255
         ligaturesEnabled = ligatures
         promptGutterEnabled = promptGutter
         let bg = RGBColor(hex: canvasBackgroundHex) ?? RGBColor(red: 0, green: 0, blue: 0)
@@ -926,7 +935,14 @@ public final class HarnessTerminalSurfaceView: NSView {
         guard let device = metalLayer.device ?? MTLCreateSystemDefaultDevice() else { return }
         metalLayer.device = device
         let scale = window?.backingScaleFactor ?? 2.0
-        renderer = TerminalMetalRenderer(device: device, fontFamily: fontFamily, fontSize: fontSize, scale: scale)
+        renderer = TerminalMetalRenderer(
+            device: device,
+            fontFamily: fontFamily,
+            fontSize: fontSize,
+            scale: scale,
+            fontThicken: fontThicken,
+            fontThickenStrength: fontThickenStrength
+        )
         // Tell the engine the real cell pixel size so inline-image cell footprints + cursor
         // advancement match what the renderer draws.
         if let renderer {

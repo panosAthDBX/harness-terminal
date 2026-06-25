@@ -694,7 +694,37 @@ struct HarnessCLI {
             configuration.detachSequence = parsed
         }
         let endpoint = try resolveEndpoint(args)
+        mirrorRemoteAttachAgentTitleIfNeeded(args: args, remoteSurfaceID: surface, remoteEndpoint: endpoint)
         return try AttachClient.run(surfaceID: surface, configuration: configuration, endpoint: endpoint)
+    }
+
+    static func remoteAttachTitleUpdateRequest(
+        args: [String],
+        environment: [String: String],
+        remoteAgentResponse: IPCResponse
+    ) -> IPCRequest? {
+        guard flagValue(args, flag: "--host") != nil else { return nil }
+        guard let localSurface = environment["HARNESS_SURFACE"], !localSurface.isEmpty else { return nil }
+        guard case let .agentInfo(agent?) = remoteAgentResponse else { return nil }
+        return .updateTabTitle(surfaceID: localSurface, title: agent.kind.displayName)
+    }
+
+    static func mirrorRemoteAttachAgentTitleIfNeeded(
+        args: [String],
+        remoteSurfaceID: String,
+        remoteEndpoint: Endpoint,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
+        guard flagValue(args, flag: "--host") != nil else { return }
+        let remoteClient = DaemonClient(endpoint: remoteEndpoint)
+        guard let remoteAgentResponse = try? remoteClient.request(.detectAgent(surfaceID: remoteSurfaceID), timeout: 1),
+              let localRequest = remoteAttachTitleUpdateRequest(
+                  args: args,
+                  environment: environment,
+                  remoteAgentResponse: remoteAgentResponse
+              )
+        else { return }
+        _ = try? DaemonClient(endpoint: .localControlSocket).request(localRequest, timeout: 1)
     }
 
     // MARK: - Remote daemons (over SSH)
